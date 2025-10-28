@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎬 视频播放页</title>
+<style>
+  body {
+    margin: 0;
+    background: #000;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+  }
+  video {
+    width: 100%;
+    max-width: 400px;
+    background: #000;
+    border-radius: 8px;
+  }
+  #overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #fff;
+  }
+  #overlay img {
+    width: 180px;
+    height: 180px;
+    margin-bottom: 15px;
+  }
+  #shareBtn {
+    background: #0af;
+    padding: 10px 20px;
+    border-radius: 6px;
+    margin-top: 10px;
+    color: #fff;
+    border: none;
+  }
+</style>
+</head>
+<body>
+<video id="player" controls poster="cover.jpg" preload="auto"></video>
+
+<div id="overlay">
+  <img src="qr.jpg" alt="分享二维码">
+  <p>请分享到微信群，停留 10 秒后方可继续播放</p>
+  <button id="shareBtn" disabled>我已分享</button>
+</div>
+
+<script>
+let player = document.getElementById('player');
+let overlay = document.getElementById('overlay');
+let shareBtn = document.getElementById('shareBtn');
+
+// 从 JSON 加载视频列表
+fetch('links.json?t=' + Date.now())
+  .then(res => res.json())
+  .then(data => {
+    let current = localStorage.getItem('lastVideo') || 0;
+    player.src = data[current];
+    player.play();
+  });
+
+// 播放计数逻辑
+player.addEventListener('play', () => {
+  let watched = JSON.parse(localStorage.getItem('watched') || '[]');
+  let src = player.src;
+  if (!watched.includes(src)) {
+    watched.push(src);
+    localStorage.setItem('watched', JSON.stringify(watched));
+
+    if (watched.length % 3 === 0) {
+      player.pause();
+      overlay.style.display = 'flex';
+      let timer = 10;
+      shareBtn.innerText = '请等待 ' + timer + ' 秒...';
+      let countdown = setInterval(() => {
+        timer--;
+        shareBtn.innerText = timer > 0 ? '请等待 ' + timer + ' 秒...' : '我已分享';
+        if (timer <= 0) {
+          clearInterval(countdown);
+          shareBtn.disabled = false;
+        }
+      }, 1000);
+    }
+  }
+});
+
+shareBtn.addEventListener('click', () => {
+  overlay.style.display = 'none';
+  player.play();
+});
+
+// 记忆播放位置
+player.addEventListener('timeupdate', () => {
+  localStorage.setItem('lastTime', player.currentTime);
+});
+player.addEventListener('loadedmetadata', () => {
+  const t = localStorage.getItem('lastTime');
+  if (t) player.currentTime = t;
+});
+</script>
+</body>
+</html>
