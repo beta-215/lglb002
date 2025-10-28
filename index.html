@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎬 视频播放页</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #000;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+  }
+  #videoContainer {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+  }
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #000;
+  }
+  #loading {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: #aaa;
+    transition: opacity 0.5s;
+  }
+  #cover {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 1;
+    cursor: pointer;
+  }
+  #qrOverlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9);
+    color: #fff;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    animation: fadeIn 0.8s ease forwards;
+  }
+  #qrOverlay img {
+    width: 220px;
+    height: 220px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    animation: pulse 2s infinite;
+  }
+  #qrOverlay p {
+    margin-bottom: 12px;
+    font-size: 16px;
+    color: #ccc;
+    text-align: center;
+  }
+  #qrOverlay button {
+    background: #00c853;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: not-allowed;
+    color: #fff;
+    opacity: 0.5;
+    transition: all 0.3s;
+  }
+  #qrOverlay button.active {
+    cursor: pointer;
+    opacity: 1;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+</style>
+</head>
+<body>
+<div id="videoContainer">
+  <div id="loading">正在加载视频...</div>
+  <video id="video" controls playsinline webkit-playsinline></video>
+  <img id="cover" />
+  <div id="qrOverlay">
+    <img src="qr.jpg" alt="分享二维码">
+    <p id="countdown">请将此二维码分享到微信群或好友<br>10 秒后可点击解锁</p>
+    <button id="sharedBtn" disabled>我已分享</button>
+  </div>
+</div>
+
+<script>
+(async function() {
+  const video = document.getElementById('video');
+  const loading = document.getElementById('loading');
+  const cover = document.getElementById('cover');
+  const qrOverlay = document.getElementById('qrOverlay');
+  const sharedBtn = document.getElementById('sharedBtn');
+  const countdownText = document.getElementById('countdown');
+
+  const res = await fetch('links.json?t=' + Date.now());
+  const data = await res.json();
+  const videos = data.videos;
+  cover.src = data.cover;
+
+  // 从本地读取数据
+  let watchedVideos = JSON.parse(localStorage.getItem('watchedVideos') || '[]'); // 已看过的视频索引
+  let unlocked = localStorage.getItem('unlockAfterShare') === 'true'; // 当前是否已解锁阶段
+  let current = parseInt(localStorage.getItem('videoIndex') || 0);
+
+  cover.onclick = () => {
+    cover.style.display = 'none';
+    playVideo();
+  };
+
+  function playVideo() {
+    if (current >= videos.length) current = 0;
+    const src = videos[current];
+    video.src = src;
+    loading.style.display = 'flex';
+    video.load();
+
+    video.oncanplay = () => {
+      loading.style.display = 'none';
+      video.play().catch(()=>{});
+    };
+
+    video.onplay = () => {
+      // 如果此视频没看过，则加入 watchedVideos
+      if (!watchedVideos.includes(current)) {
+        watchedVideos.push(current);
+        localStorage.setItem('watchedVideos', JSON.stringify(watchedVideos));
+
+        // 每看 3 个新视频 → 强制分享
+        const newVideosSinceLastShare = watchedVideos.length % 3;
+        if (newVideosSinceLastShare === 0 && !unlocked) {
+          video.pause();
+          showShareOverlay();
+        }
+      }
+    };
+
+    video.onended = () => {
+      current++;
+      localStorage.setItem('videoIndex', current);
+      playVideo();
+    };
+  }
+
+  function showShareOverlay() {
+    qrOverlay.style.display = 'flex';
+    sharedBtn.disabled = true;
+    sharedBtn.classList.remove('active');
+    unlocked = false;
+    localStorage.setItem('unlockAfterShare', 'false');
+    let timeLeft = 10;
+    countdownText.innerHTML = `请将此二维码分享到微信群或好友<br>${timeLeft} 秒后可点击解锁`;
+
+    const timer = setInterval(() => {
+      timeLeft--;
+      countdownText.innerHTML = `请将此二维码分享到微信群或好友<br>${timeLeft} 秒后可点击解锁`;
+      if (timeLeft <= 0) {
+        clearInterval(timer);
+        sharedBtn.disabled = false;
+        sharedBtn.classList.add('active');
+        countdownText.innerHTML = `请点击“我已分享”按钮以继续播放`;
+      }
+    }, 1000);
+  }
+
+  sharedBtn.onclick = () => {
+    if (sharedBtn.disabled) return;
+    qrOverlay.style.display = 'none';
+    unlocked = true;
+    localStorage.setItem('unlockAfterShare', 'true');
+    playVideo();
+  };
+})();
+</script>
+</body>
+</html>
