@@ -2,919 +2,445 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>视频分享平台</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
         }
         
         body {
             background-color: #f5f5f5;
             color: #333;
             line-height: 1.6;
-            padding: 10px;
-            max-width: 500px;
+        }
+        
+        .container {
+            max-width: 800px;
             margin: 0 auto;
-            position: relative;
-            min-height: 100vh;
+            padding: 20px;
         }
         
-        .header {
-            background: linear-gradient(135deg, #6e8efb, #a777e3);
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 15px;
+        header {
             text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
         
-        .header h1 {
-            font-size: 18px;
+        h1 {
+            font-size: 28px;
             margin-bottom: 5px;
         }
         
-        .header p {
-            font-size: 14px;
+        .subtitle {
+            font-size: 16px;
             opacity: 0.9;
         }
         
-        .banner-link {
-            display: block;
-            margin-bottom: 15px;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-        
-        .banner-link img {
-            width: 100%;
-            display: block;
-        }
-        
-        .player-container {
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-bottom: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            position: relative;
-        }
-        
-        #videoPlayer {
-            width: 100%;
-            height: 280px;
-            display: block;
-            object-fit: contain;
-        }
-        
-        .player-tip {
-            text-align: center;
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 15px;
-            padding: 0 10px;
-        }
-        
-        .video-info {
-            background: white;
+        .warning {
+            background-color: #ffcc00;
+            border-left: 5px solid #ff9900;
             padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        
-        .video-info h2 {
-            font-size: 16px;
-            margin-bottom: 10px;
-            color: #333;
-        }
-        
-        .video-info p {
+            margin: 20px 0;
+            border-radius: 5px;
             font-size: 14px;
-            color: #666;
-            margin-bottom: 8px;
+        }
+        
+        .tip {
+            background-color: #e6f7ff;
+            border-left: 5px solid #1890ff;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .video-container {
+            position: relative;
+            margin: 20px 0;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        video {
+            width: 100%;
+            display: block;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 18px;
+            z-index: 10;
+            transition: opacity 0.3s ease;
+        }
+        
+        .video-controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .video-container:hover .video-controls {
+            opacity: 1;
+        }
+        
+        .progress-bar {
+            flex-grow: 1;
+            height: 5px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            margin: 0 10px;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .progress {
+            height: 100%;
+            background-color: #ff4757;
+            border-radius: 3px;
+            width: 0%;
         }
         
         .watch-count {
-            display: flex;
-            align-items: center;
-            background: #e3f2fd;
+            background-color: #f0f0f0;
             padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            text-align: center;
             font-size: 14px;
-        }
-        
-        .watch-count .icon {
-            width: 24px;
-            height: 24px;
-            background: #2196f3;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 10px;
-            color: white;
-            font-size: 12px;
         }
         
         .video-list {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        
-        .video-list h3 {
-            font-size: 16px;
-            margin-bottom: 10px;
-            color: #ff4081;
-        }
-        
-        .video-items {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
         }
         
         .video-item {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-            background: #f9f9f9;
-            border-radius: 6px;
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
             cursor: pointer;
-            transition: background 0.3s;
         }
         
         .video-item:hover {
-            background: #f0f0f0;
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
         
-        .video-item.active {
-            background: #e3f2fd;
-            border-left: 3px solid #2196f3;
-        }
-        
-        .video-item.played {
-            opacity: 0.7;
-        }
-        
-        .video-item .thumb {
-            width: 60px;
-            height: 45px;
-            background: #ddd;
-            border-radius: 4px;
-            margin-right: 10px;
+        .video-thumbnail {
+            width: 100%;
+            height: 120px;
+            background-color: #e0e0e0;
             display: flex;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             color: #666;
-            font-size: 12px;
-            overflow: hidden;
-        }
-        
-        .video-item .thumb img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .video-item .info {
-            flex-grow: 1;
-        }
-        
-        .video-item .title {
             font-size: 14px;
-            margin-bottom: 4px;
         }
         
-        .video-item .duration {
-            font-size: 12px;
-            color: #666;
+        .video-info {
+            padding: 10px;
         }
         
-        .share-panel {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            border-top-left-radius: 15px;
-            border-top-right-radius: 15px;
-            padding: 20px 15px 30px;
-            box-shadow: 0 -5px 20px rgba(0,0,0,0.15);
-            z-index: 1000;
-            transform: translateY(100%);
-            transition: transform 0.3s ease-out;
-            max-width: 500px;
-            margin: 0 auto;
-        }
-        
-        .share-panel.active {
-            transform: translateY(0);
-        }
-        
-        .share-panel h3 {
-            text-align: center;
-            margin-bottom: 20px;
-            font-size: 16px;
-            color: #333;
-        }
-        
-        .share-options {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .share-option {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            cursor: pointer;
-        }
-        
-        .share-option .icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 8px;
-            font-size: 24px;
-        }
-        
-        .share-option .text {
-            font-size: 12px;
-            color: #333;
-        }
-        
-        .share-option.wechat .icon {
-            background: #09bb07;
-            color: white;
-        }
-        
-        .share-option.moments .icon {
-            background: #7bc549;
-            color: white;
-        }
-        
-        .share-option.save .icon {
-            background: #2196f3;
-            color: white;
-        }
-        
-        .share-option.collect .icon {
-            background: #ff9800;
-            color: white;
-        }
-        
-        .cancel-btn {
-            width: 100%;
-            padding: 12px;
-            background: #f0f0f0;
-            color: #333;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            text-align: center;
-        }
-        
-        .share-guide {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.9);
-            z-index: 2000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            text-align: center;
-            padding: 20px;
-            display: none;
-        }
-        
-        .share-guide.active {
-            display: flex;
-        }
-        
-        .share-guide img {
-            width: 200px;
-            height: 200px;
-            margin-bottom: 20px;
-            border: 2px solid white;
-            border-radius: 10px;
-            object-fit: cover;
-        }
-        
-        .share-guide p {
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
-        
-        .share-guide .close-guide {
-            margin-top: 20px;
-            padding: 10px 20px;
-            background: #ff4081;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            font-size: 14px;
-            cursor: pointer;
-        }
-        
-        .options-section {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        
-        .options-section h3 {
-            font-size: 16px;
-            margin-bottom: 10px;
-            color: #ff9800;
-        }
-        
-        .options-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-        }
-        
-        .option-item {
-            background: #fff3e0;
-            border-radius: 6px;
-            padding: 12px 8px;
-            text-align: center;
-            border-left: 3px solid #ff9800;
-        }
-        
-        .option-item .icon {
-            font-size: 20px;
+        .video-title {
+            font-weight: bold;
             margin-bottom: 5px;
+            font-size: 14px;
         }
         
-        .option-item .text {
+        .video-duration {
+            color: #666;
             font-size: 12px;
-            color: #333;
         }
         
-        .footer {
-            text-align: center;
+        .share-prompt {
+            background-color: #e6f7ff;
+            border: 1px solid #91d5ff;
             padding: 15px;
-            font-size: 12px;
-            color: #999;
-            margin-top: 20px;
-        }
-        
-        .locked-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            z-index: 100;
             border-radius: 8px;
-        }
-        
-        .locked-overlay .lock-icon {
-            font-size: 40px;
-            margin-bottom: 15px;
-        }
-        
-        .locked-overlay p {
-            margin-bottom: 15px;
+            margin: 20px 0;
             text-align: center;
-            padding: 0 20px;
+            display: none;
         }
         
-        .unlock-btn {
-            padding: 10px 20px;
-            background: #ff4081;
+        .share-button {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
             color: white;
             border: none;
-            border-radius: 20px;
-            font-size: 14px;
+            padding: 10px 20px;
+            border-radius: 5px;
             cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+            transition: transform 0.2s;
         }
         
-        .hidden {
-            display: none;
+        .share-button:hover {
+            transform: scale(1.05);
         }
         
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 999;
-            display: none;
+        .locked {
+            opacity: 0.5;
+            position: relative;
         }
         
-        .overlay.active {
-            display: block;
-        }
-        
-        .video-loading {
+        .locked::after {
+            content: "已锁定";
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
             color: white;
-            z-index: 50;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            padding: 15px;
+            color: #666;
+            font-size: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .control-button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>视频分享平台</h1>
-        <p>精彩视频免费看，分享好友解锁更多</p>
-    </div>
-    
-    <!-- 可自定义的超链接图片 -->
-    <a href="#" class="banner-link">
-        <img src="https://via.placeholder.com/500x100/4CAF50/FFFFFF?text=自定义广告图片" alt="广告图片">
-    </a>
-    
-    <div class="player-container">
-        <video id="videoPlayer" controls playsinline webkit-playsinline x5-playsinline x-webkit-airplay="allow">
-            <!-- 微信浏览器需要这些属性才能正常播放 -->
-        </video>
+    <div class="container">
+        <header>
+            <h1>视频分享平台</h1>
+            <p class="subtitle">beta-215.github.io</p>
+            <p class="subtitle">精彩视频免费看，分享好友解锁更多</p>
+        </header>
         
-        <div id="lockedOverlay" class="locked-overlay hidden">
-            <div class="lock-icon">🔒</div>
-            <p>您已观看完3个免费视频，分享给好友即可解锁更多内容</p>
-            <button class="unlock-btn" id="showShareBtn">立即分享</button>
+        <div class="tip">
+            温馨提示：视频加载可能需要几秒钟，请耐心等待
         </div>
         
-        <div id="videoLoading" class="video-loading hidden">
-            视频加载中，请稍候...
+        <div class="warning">
+            <strong>WARNING</strong><br>
+            Federal Law provides severe civil and criminal penalties for the unauthorized and unauthorized protection of copyrighted motion picture.<br>
+            The Federal Bureau of Investigation investigates allegations of criminal copyright infringement (Title 17, United States Code, Section 506).
         </div>
-    </div>
-    
-    <div class="player-tip">
-        温馨提示：视频加载可能需要几秒钟，请耐心等待
-    </div>
-    
-    <div class="video-info">
-        <h2 id="currentVideoTitle">请选择一个视频播放</h2>
-        <p>防走丢提示如无法打开，换一部作品分享给裙友</p>
+        
+        <div class="video-container">
+            <video id="mainVideo" controls>
+                <source src="" type="video/mp4">
+                您的浏览器不支持视频播放。
+            </video>
+            <div class="loading-overlay" id="loadingOverlay">
+                视频加载中，请稍后...
+            </div>
+            <div class="video-controls">
+                <button class="control-button" id="playPauseBtn">▶</button>
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress" id="progress"></div>
+                </div>
+                <span id="timeDisplay">0:00 / 0:00</span>
+            </div>
+        </div>
+        
         <div class="watch-count">
-            <div class="icon">!</div>
-            <div>当前周期已观看: <span id="watchedCount">0</span>/3 个免费视频</div>
+            当前周期已观看: <span id="watchCount">0</span>/3 个免费视频
         </div>
-    </div>
-    
-    <div class="video-list">
-        <h3>视频列表</h3>
-        <div class="video-items" id="videoItems">
-            <!-- 视频列表会通过JavaScript动态生成 -->
+        
+        <div class="share-prompt" id="sharePrompt">
+            <p>您已观看完3个免费视频，分享给好友解锁更多精彩内容！</p>
+            <button class="share-button">立即分享</button>
         </div>
-    </div>
-    
-    <div class="options-section">
-        <h3>精选内容推荐</h3>
-        <div class="options-grid">
-            <div class="option-item">
-                <div class="icon">📺</div>
-                <div class="text">热门直播</div>
-            </div>
-            <div class="option-item">
-                <div class="icon">🎬</div>
-                <div class="text">最新影视</div>
-            </div>
-            <div class="option-item">
-                <div class="icon">🎵</div>
-                <div class="text">音乐MV</div>
-            </div>
-            <div class="option-item">
-                <div class="icon">🎮</div>
-                <div class="text">游戏视频</div>
-            </div>
-            <div class="option-item">
-                <div class="icon">📱</div>
-                <div class="text">短视频</div>
-            </div>
-            <div class="option-item">
-                <div class="icon">🔥</div>
-                <div class="text">热门推荐</div>
-            </div>
+        
+        <h2>视频列表</h2>
+        <div class="video-list" id="videoList">
+            <!-- 视频列表将通过JavaScript动态生成 -->
         </div>
+        
+        <footer>
+            <p>防走丢提示如无法打开，换一部作品分享给裙友</p>
+        </footer>
     </div>
-    
-    <div class="footer">
-        <p>© 2025 视频分享平台 · 仅供学习交流使用</p>
-    </div>
-    
-    <!-- 分享面板 -->
-    <div class="share-panel" id="sharePanel">
-        <h3>需要分享后才能继续观影</h3>
-        <div class="share-options">
-            <div class="share-option wechat" id="shareToFriend">
-                <div class="icon">👤</div>
-                <div class="text">转发给朋友</div>
-            </div>
-            <div class="share-option moments" id="shareToMoments">
-                <div class="icon">👥</div>
-                <div class="text">分享到朋友圈</div>
-            </div>
-            <div class="share-option save" id="saveToPhone">
-                <div class="icon">💾</div>
-                <div class="text">保存到手机</div>
-            </div>
-            <div class="share-option collect" id="collectBtn">
-                <div class="icon">⭐</div>
-                <div class="text">收藏</div>
-            </div>
-        </div>
-        <button class="cancel-btn" id="cancelShare">取消</button>
-    </div>
-    
-    <!-- 分享指引 -->
-    <div class="share-guide" id="shareGuide">
-        <img src="https://i.ibb.co/Z63h8mck/qrcode.png" alt="微信分享二维码">
-        <p>请点击右上角"..."按钮</p>
-        <p>然后选择"发送给朋友"或"分享到朋友圈"</p>
-        <button class="close-guide" id="closeGuide">我已分享</button>
-    </div>
-    
-    <!-- 遮罩层 -->
-    <div class="overlay" id="overlay"></div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // 初始化变量
-            let watchedCount = 0;
-            let hasShared = false;
-            let currentVideoId = null;
-            let playedVideos = new Set(); // 使用Set来记录已播放的视频，避免重复计数
-            let cycleCount = 0; // 记录当前是第几个周期
-            
-            const videoPlayer = document.getElementById('videoPlayer');
-            const watchedCountElement = document.getElementById('watchedCount');
-            const lockedOverlay = document.getElementById('lockedOverlay');
-            const showShareBtn = document.getElementById('showShareBtn');
-            const videoItemsContainer = document.getElementById('videoItems');
-            const currentVideoTitle = document.getElementById('currentVideoTitle');
-            const sharePanel = document.getElementById('sharePanel');
-            const overlay = document.getElementById('overlay');
-            const shareGuide = document.getElementById('shareGuide');
-            const shareToFriend = document.getElementById('shareToFriend');
-            const shareToMoments = document.getElementById('shareToMoments');
-            const saveToPhone = document.getElementById('saveToPhone');
-            const collectBtn = document.getElementById('collectBtn');
-            const cancelShare = document.getElementById('cancelShare');
-            const closeGuide = document.getElementById('closeGuide');
-            const videoLoading = document.getElementById('videoLoading');
-            
-            // 从本地存储加载观看次数
-            const savedWatchedCount = localStorage.getItem('watchedCount');
-            if (savedWatchedCount !== null) {
-                watchedCount = parseInt(savedWatchedCount);
-                watchedCountElement.textContent = watchedCount;
-            }
-            
-            // 从本地存储加载分享状态
-            const savedHasShared = localStorage.getItem('hasShared');
-            if (savedHasShared !== null) {
-                hasShared = JSON.parse(savedHasShared);
-            }
-            
-            // 从本地存储加载已播放视频
-            const savedPlayedVideos = localStorage.getItem('playedVideos');
-            if (savedPlayedVideos !== null) {
-                playedVideos = new Set(JSON.parse(savedPlayedVideos));
-            }
-            
-            // 从本地存储加载周期计数
-            const savedCycleCount = localStorage.getItem('cycleCount');
-            if (savedCycleCount !== null) {
-                cycleCount = parseInt(savedCycleCount);
-            }
-            
-            // 在这里添加您的多条M3U8链接
-            const videoList = [
-                {
-                    id: 1,
-                    title: "示例视频1 - 风景欣赏",
-                    url: "https://v202509.fhbbff.com/20251025/YvivGiif/index.m3u8", // 使用测试视频，确保能播放
-                    duration: "5:30",
-                    thumbnail: "https://via.placeholder.com/60x45/4CAF50/FFFFFF?text=风景"
-                },
-                {
-                    id: 2,
-                    title: "示例视频2 - 动物世界",
-                    url: "https://v202509.fhbbff.com/20251025/KJSSxEk1/index.m3u8",
-                    duration: "10:15",
-                    thumbnail: "https://via.placeholder.com/60x45/2196F3/FFFFFF?text=动物"
-                },
-                {
-                    id: 3,
-                    title: "示例视频3 - 科技前沿",
-                    url: "https://v202509.fhbbff.com/20251023/tc19cBGs/index.m3u8",
-                    duration: "7:45",
-                    thumbnail: "https://via.placeholder.com/60x45/FF9800/FFFFFF?text=科技"
-                },
-                {
-                    id: 4,
-                    title: "示例视频4 - 音乐MV",
-                    url: "https://v202509.fhbbff.com/20251026/C3JARqNJ/index.m3u8",
-                    duration: "55:20",
-                    thumbnail: "https://via.placeholder.com/60x45/E91E63/FFFFFF?text=音乐"
-                },
-                {
-                    id: 5,
-                    title: "示例视频5 - 体育集锦",
-                    url: "https://v202509.fhbbff.com/20251026/PbfagE2m/index.m3u8",
-                    duration: "58:50",
-                    thumbnail: "https://via.placeholder.com/60x45/795548/FFFFFF?text=体育"
-                },
-                {
-                    id: 6,
-                    title: "示例视频6 - 美食制作",
-                    url: "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8",
-                    duration: "12:30",
-                    thumbnail: "https://via.placeholder.com/60x45/607D8B/FFFFFF?text=美食"
-                }
+            // 视频数据
+            const videos = [
+                { id: 1, title: "示例视频1 - 风景", description: "示例视频1 - 风景欣赏", duration: "5:30" },
+                { id: 2, title: "示例视频2 - 动物", description: "示例视频2 - 动物世界", duration: "10:15" },
+                { id: 3, title: "示例视频3 - 体育", description: "示例视频3 - 体育集锦", duration: "7:45" },
+                { id: 4, title: "示例视频4 - 音乐", description: "示例视频4 - 音乐现场", duration: "4:20" },
+                { id: 5, title: "示例视频5 - 美食", description: "示例视频5 - 美食制作", duration: "8:10" }
             ];
             
-            // 初始化HLS播放器
-            let hls;
+            // DOM元素
+            const mainVideo = document.getElementById('mainVideo');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const videoList = document.getElementById('videoList');
+            const watchCountElement = document.getElementById('watchCount');
+            const sharePrompt = document.getElementById('sharePrompt');
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            const progressBar = document.getElementById('progressBar');
+            const progress = document.getElementById('progress');
+            const timeDisplay = document.getElementById('timeDisplay');
             
-            // 渲染视频列表
-            function renderVideoList() {
-                videoItemsContainer.innerHTML = '';
-                
-                videoList.forEach(video => {
+            // 状态变量
+            let watchCount = 0;
+            let watchedVideos = new Set();
+            
+            // 初始化视频列表
+            function initVideoList() {
+                videos.forEach(video => {
                     const videoItem = document.createElement('div');
                     videoItem.className = 'video-item';
-                    videoItem.dataset.id = video.id;
-                    
-                    // 如果视频已播放过，添加特殊标记
-                    if (playedVideos.has(video.id)) {
-                        videoItem.classList.add('played');
-                    }
-                    
                     videoItem.innerHTML = `
-                        <div class="thumb">
-                            <img src="${video.thumbnail}" alt="${video.title}">
-                        </div>
-                        <div class="info">
-                            <div class="title">${video.title}</div>
-                            <div class="duration">${video.duration}</div>
+                        <div class="video-thumbnail">视频缩略图 ${video.id}</div>
+                        <div class="video-info">
+                            <div class="video-title">${video.title}</div>
+                            <div class="video-duration">${video.duration}</div>
                         </div>
                     `;
                     
                     videoItem.addEventListener('click', function() {
-                        // 检查是否已达到观看限制
-                        if (watchedCount >= 3 && !hasShared) {
-                            lockedOverlay.classList.remove('hidden');
+                        if (watchCount >= 3 && !watchedVideos.has(video.id)) {
+                            alert('您已达到免费观看上限，请分享给好友解锁更多视频！');
                             return;
                         }
                         
-                        // 移除所有active类
-                        document.querySelectorAll('.video-item').forEach(item => {
-                            item.classList.remove('active');
-                        });
-                        
-                        // 添加active类到当前项
-                        this.classList.add('active');
-                        
-                        // 播放选中的视频
                         playVideo(video);
                     });
                     
-                    videoItemsContainer.appendChild(videoItem);
+                    videoList.appendChild(videoItem);
                 });
             }
             
-            // 播放视频函数
+            // 播放视频
             function playVideo(video) {
-                currentVideoTitle.textContent = video.title;
-                currentVideoId = video.id;
-                
                 // 显示加载提示
-                videoLoading.classList.remove('hidden');
+                loadingOverlay.style.display = 'flex';
                 
-                // 如果HLS已经存在，先销毁
-                if (hls) {
-                    hls.destroy();
-                }
-                
-                // 初始化HLS播放器
-                if (Hls.isSupported()) {
-                    hls = new Hls({
-                        enableWorker: false, // 在微信中可能需要禁用worker
-                        lowLatencyMode: true,
-                        backBufferLength: 90
-                    });
+                // 模拟视频加载
+                setTimeout(() => {
+                    // 隐藏加载提示
+                    loadingOverlay.style.display = 'none';
                     
-                    hls.loadSource(video.url);
-                    hls.attachMedia(videoPlayer);
+                    // 设置视频源（这里使用占位源）
+                    mainVideo.src = `https://sample-videos.com/zip/10/mp4/SampleVideo_${video.id % 3 + 1}_1280x720_1mb.mp4`;
                     
-                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        videoLoading.classList.add('hidden');
-                        videoPlayer.play().catch(e => {
-                            console.log('自动播放失败，需要用户交互:', e);
-                            // 在微信中，可能需要用户手动点击播放
-                        });
-                    });
+                    // 播放视频
+                    mainVideo.play();
                     
-                    hls.on(HlsEvents.ERROR, function(event, data) {
-                        console.error('HLS错误:', data);
-                        if (data.fatal) {
-                            switch(data.type) {
-                                case Hls.ErrorTypes.NETWORK_ERROR:
-                                    console.log('网络错误，尝试重新加载');
-                                    hls.startLoad();
-                                    break;
-                                case Hls.ErrorTypes.MEDIA_ERROR:
-                                    console.log('媒体错误，尝试恢复');
-                                    hls.recoverMediaError();
-                                    break;
-                                default:
-                                    console.log('不可恢复的错误');
-                                    videoLoading.classList.add('hidden');
-                                    alert('视频加载失败，请稍后重试');
-                                    break;
-                            }
-                        }
-                    });
-                } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-                    // 原生支持HLS的浏览器（如Safari）
-                    videoPlayer.src = video.url;
-                    videoPlayer.addEventListener('loadedmetadata', function() {
-                        videoLoading.classList.add('hidden');
-                        videoPlayer.play().catch(e => {
-                            console.log('自动播放失败:', e);
-                        });
-                    });
-                } else {
-                    // 不支持HLS的浏览器
-                    videoLoading.classList.add('hidden');
-                    alert('您的浏览器不支持播放此视频格式');
-                }
-                
-                // 视频开始播放时计数
-                const playHandler = function() {
-                    // 只有当视频是第一次播放且用户未分享时才计数
-                    if (currentVideoId && !playedVideos.has(currentVideoId) && !hasShared) {
-                        playedVideos.add(currentVideoId);
-                        watchedCount = playedVideos.size;
+                    // 如果这是第一次观看此视频，增加观看计数
+                    if (!watchedVideos.has(video.id)) {
+                        watchedVideos.add(video.id);
+                        watchCount++;
+                        watchCountElement.textContent = watchCount;
                         
-                        // 保存到本地存储
-                        localStorage.setItem('watchedCount', watchedCount);
-                        localStorage.setItem('playedVideos', JSON.stringify([...playedVideos]));
-                        
-                        updateWatchedCount();
-                        updateVideoListDisplay();
-                        
-                        // 检查是否达到3个视频，如果是则锁定
-                        if (watchedCount >= 3) {
-                            lockedOverlay.classList.remove('hidden');
-                            videoPlayer.pause();
+                        // 检查是否达到观看上限
+                        if (watchCount >= 3) {
+                            sharePrompt.style.display = 'block';
+                            // 锁定未观看的视频
+                            lockUnwatchedVideos();
                         }
                     }
-                    
-                    // 移除事件监听器，避免重复触发
-                    videoPlayer.removeEventListener('play', playHandler);
-                };
-                
-                videoPlayer.addEventListener('play', playHandler);
+                }, 1500); // 模拟1.5秒加载时间
             }
             
-            // 更新视频列表显示
-            function updateVideoListDisplay() {
-                document.querySelectorAll('.video-item').forEach(item => {
-                    const videoId = parseInt(item.dataset.id);
-                    if (playedVideos.has(videoId)) {
-                        item.classList.add('played');
+            // 锁定未观看的视频
+            function lockUnwatchedVideos() {
+                const videoItems = document.querySelectorAll('.video-item');
+                videoItems.forEach((item, index) => {
+                    if (!watchedVideos.has(index + 1)) {
+                        item.classList.add('locked');
                     }
                 });
             }
             
-            // 更新观看次数
-            function updateWatchedCount() {
-                watchedCountElement.textContent = watchedCount;
+            // 视频控制功能
+            mainVideo.addEventListener('loadedmetadata', function() {
+                updateTimeDisplay();
+            });
+            
+            mainVideo.addEventListener('timeupdate', function() {
+                const percent = (mainVideo.currentTime / mainVideo.duration) * 100;
+                progress.style.width = percent + '%';
+                updateTimeDisplay();
+            });
+            
+            progressBar.addEventListener('click', function(e) {
+                const rect = progressBar.getBoundingClientRect();
+                const percent = (e.clientX - rect.left) / rect.width;
+                mainVideo.currentTime = percent * mainVideo.duration;
+            });
+            
+            playPauseBtn.addEventListener('click', function() {
+                if (mainVideo.paused) {
+                    mainVideo.play();
+                    playPauseBtn.textContent = '❚❚';
+                } else {
+                    mainVideo.pause();
+                    playPauseBtn.textContent = '▶';
+                }
+            });
+            
+            mainVideo.addEventListener('play', function() {
+                playPauseBtn.textContent = '❚❚';
+            });
+            
+            mainVideo.addEventListener('pause', function() {
+                playPauseBtn.textContent = '▶';
+            });
+            
+            function updateTimeDisplay() {
+                const currentTime = formatTime(mainVideo.currentTime);
+                const duration = formatTime(mainVideo.duration);
+                timeDisplay.textContent = `${currentTime} / ${duration}`;
             }
             
-            // 显示分享面板
-            showShareBtn.addEventListener('click', function() {
-                sharePanel.classList.add('active');
-                overlay.classList.add('active');
-            });
-            
-            // 转发给朋友
-            shareToFriend.addEventListener('click', function() {
-                sharePanel.classList.remove('active');
-                shareGuide.classList.add('active');
-            });
-            
-            // 分享到朋友圈
-            shareToMoments.addEventListener('click', function() {
-                sharePanel.classList.remove('active');
-                shareGuide.classList.add('active');
-            });
-            
-            // 保存到手机
-            saveToPhone.addEventListener('click', function() {
-                // 创建一个虚拟链接用于下载
-                const link = document.createElement('a');
-                link.href = 'https://i.ibb.co/Z63h8mck/qrcode.png';
-                link.download = '分享二维码.png';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                alert('二维码已保存到手机相册，请分享给好友');
-            });
-            
-            // 收藏
-            collectBtn.addEventListener('click', function() {
-                alert('页面已添加到收藏');
-            });
-            
-            // 取消分享
-            cancelShare.addEventListener('click', function() {
-                sharePanel.classList.remove('active');
-                overlay.classList.remove('active');
-            });
-            
-            // 关闭指引并解锁
-            closeGuide.addEventListener('click', function() {
-                shareGuide.classList.remove('active');
-                overlay.classList.remove('active');
-                
-                // 用户已经分享，解锁新的3个视频
-                hasShared = true;
-                cycleCount++;
-                
-                // 重置观看计数，但保留已播放视频记录
-                watchedCount = 0;
-                
-                // 保存状态到本地存储
-                localStorage.setItem('hasShared', JSON.stringify(hasShared));
-                localStorage.setItem('cycleCount', cycleCount);
-                localStorage.setItem('watchedCount', watchedCount);
-                
-                // 更新界面
-                updateWatchedCount();
-                lockedOverlay.classList.add('hidden');
-                
-                alert(`分享成功！已解锁新的3个视频（第${cycleCount+1}周期）`);
-            });
-            
-            // 点击遮罩层关闭分享面板
-            overlay.addEventListener('click', function() {
-                sharePanel.classList.remove('active');
-                shareGuide.classList.remove('active');
-                overlay.classList.remove('active');
-            });
+            function formatTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            }
             
             // 初始化
-            renderVideoList();
-            updateWatchedCount();
-            
-            // 检查是否需要显示锁定界面
-            if (watchedCount >= 3 && !hasShared) {
-                lockedOverlay.classList.remove('hidden');
-            }
-            
-            // 微信浏览器特殊处理
-            if (/MicroMessenger/i.test(navigator.userAgent)) {
-                console.log('微信浏览器环境检测');
-                // 添加微信特定的事件处理
-            }
+            initVideoList();
         });
     </script>
 </body>
