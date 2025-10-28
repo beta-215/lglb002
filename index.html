@@ -6,6 +6,8 @@
     <title>视频分享平台</title>
     <!-- 引入hls.js库用于播放m3u8格式视频 -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- 引入qrcode.js库用于生成二维码 -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -72,9 +74,9 @@
         
         .progress-bar {
             flex-grow: 1;
-            height: 6px;
+            height: 8px;
             background-color: rgba(255, 255, 255, 0.2);
-            border-radius: 3px;
+            border-radius: 4px;
             margin: 0 12px;
             position: relative;
             cursor: pointer;
@@ -83,9 +85,27 @@
         .progress {
             height: 100%;
             background: linear-gradient(90deg, #ff4757, #ff6b81);
-            border-radius: 3px;
+            border-radius: 4px;
             width: 0%;
             transition: width 0.1s;
+        }
+        
+        .progress-handle {
+            position: absolute;
+            top: 50%;
+            right: -6px;
+            width: 12px;
+            height: 12px;
+            background: #fff;
+            border-radius: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.2s;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+        
+        .progress-bar:hover .progress-handle {
+            opacity: 1;
         }
         
         .watch-count {
@@ -264,14 +284,20 @@
             align-items: center;
             justify-content: center;
             border-radius: 10px;
-            font-size: 14px;
-            color: #333;
+            overflow: hidden;
+        }
+        
+        .qr-code img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
         
         .timer {
             margin: 15px 0;
             font-size: 14px;
             color: #ff6b6b;
+            display: none; /* 隐藏倒计时 */
         }
         
         .confirm-share {
@@ -338,6 +364,10 @@
             font-size: 18px;
             color: #fff;
         }
+        
+        .fullscreen-btn {
+            margin-left: 5px;
+        }
     </style>
 </head>
 <body>
@@ -346,7 +376,7 @@
             温馨提示：视频加载可能需要几秒钟，请耐心等待
         </div>
         
-        <div class="video-container">
+        <div class="video-container" id="videoContainer">
             <video id="mainVideo">
                 <!-- 您的m3u8视频链接将在这里动态加载 -->
                 您的浏览器不支持视频播放。
@@ -355,8 +385,10 @@
                 <button class="control-button" id="playPauseBtn">▶</button>
                 <div class="progress-bar" id="progressBar">
                     <div class="progress" id="progress"></div>
+                    <div class="progress-handle" id="progressHandle"></div>
                 </div>
                 <span id="timeDisplay">0:00 / 0:00</span>
+                <button class="control-button fullscreen-btn" id="fullscreenBtn">⛶</button>
             </div>
             <div class="loading-animation" id="loadingAnimation">
                 <div class="spinner"></div>
@@ -386,12 +418,11 @@
     <div class="qr-modal" id="qrModal">
         <div class="qr-content">
             <h3>分享给好友解锁更多视频</h3>
-            <p>请分享以下二维码给好友</p>
-            <div class="qr-code">
-                <!-- 实际项目中这里应放置真实的二维码 -->
-                二维码区域
+            <p>请长按保存并分享以下二维码给好友</p>
+            <div class="qr-code" id="qrCode">
+                <!-- 二维码将在这里动态生成 -->
             </div>
-            <div class="timer" id="timer">请等待 <span id="countdown">10</span> 秒</div>
+            <div class="timer" id="timer">请等待30秒</div>
             <button class="confirm-share" id="confirmShare" disabled>我已分享</button>
         </div>
     </div>
@@ -452,6 +483,7 @@
             
             // DOM元素
             const mainVideo = document.getElementById('mainVideo');
+            const videoContainer = document.getElementById('videoContainer');
             const videoList = document.getElementById('videoList');
             const watchCountElement = document.getElementById('watchCount');
             const sharePrompt = document.getElementById('sharePrompt');
@@ -459,20 +491,23 @@
             const playPauseBtn = document.getElementById('playPauseBtn');
             const progressBar = document.getElementById('progressBar');
             const progress = document.getElementById('progress');
+            const progressHandle = document.getElementById('progressHandle');
             const timeDisplay = document.getElementById('timeDisplay');
             const loadingAnimation = document.getElementById('loadingAnimation');
             const qrModal = document.getElementById('qrModal');
             const confirmShare = document.getElementById('confirmShare');
-            const countdownElement = document.getElementById('countdown');
-            const timerElement = document.getElementById('timer');
+            const qrCodeElement = document.getElementById('qrCode');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
             
             // 状态变量
             let watchCount = 0;
             let watchedVideos = new Set();
             let shareCompleted = false;
-            let countdown = 10;
+            let countdown = 30; // 改为30秒
             let countdownInterval;
             let hls; // HLS播放器实例
+            let currentVideoId = null; // 当前播放的视频ID
+            let isDragging = false; // 是否正在拖动进度条
             
             // 从本地存储加载数据
             function loadFromStorage() {
@@ -499,6 +534,17 @@
                 localStorage.setItem('videoWatchCount', watchCount.toString());
                 localStorage.setItem('watchedVideos', JSON.stringify([...watchedVideos]));
                 localStorage.setItem('shareCompleted', JSON.stringify(shareCompleted));
+            }
+            
+            // 保存视频播放进度
+            function saveVideoProgress(videoId, currentTime) {
+                localStorage.setItem(`videoProgress_${videoId}`, currentTime.toString());
+            }
+            
+            // 获取视频播放进度
+            function getVideoProgress(videoId) {
+                const progress = localStorage.getItem(`videoProgress_${videoId}`);
+                return progress ? parseFloat(progress) : 0;
             }
             
             // 初始化视频列表
@@ -537,6 +583,8 @@
             
             // 播放视频
             function playVideo(video) {
+                currentVideoId = video.id;
+                
                 // 显示加载动画
                 loadingAnimation.style.display = 'flex';
                 
@@ -557,6 +605,13 @@
                     hls.on(Hls.Events.MANIFEST_PARSED, function() {
                         // 隐藏加载动画
                         loadingAnimation.style.display = 'none';
+                        
+                        // 获取保存的播放进度
+                        const savedTime = getVideoProgress(video.id);
+                        if (savedTime > 0) {
+                            mainVideo.currentTime = savedTime;
+                        }
+                        
                         // 播放视频
                         mainVideo.play();
                     });
@@ -565,6 +620,13 @@
                     mainVideo.src = video.src;
                     mainVideo.addEventListener('loadedmetadata', function() {
                         loadingAnimation.style.display = 'none';
+                        
+                        // 获取保存的播放进度
+                        const savedTime = getVideoProgress(video.id);
+                        if (savedTime > 0) {
+                            mainVideo.currentTime = savedTime;
+                        }
+                        
                         mainVideo.play();
                     });
                 } else {
@@ -629,22 +691,47 @@
                 });
             }
             
+            // 生成二维码
+            function generateQRCode() {
+                // 清空之前的二维码
+                qrCodeElement.innerHTML = '';
+                
+                // 生成二维码 - 这里使用当前页面URL作为示例
+                // 实际应用中，您可以使用推广链接或其他URL
+                const shareUrl = "https://ibb.co.com/Z63h8mck";
+                
+                // 使用QRCode.js生成二维码
+                QRCode.toCanvas(shareUrl, { width: 200, height: 200 }, function(err, canvas) {
+                    if (err) {
+                        console.error(err);
+                        qrCodeElement.innerHTML = '二维码生成失败';
+                        return;
+                    }
+                    
+                    // 将canvas转换为img，方便用户长按保存
+                    const img = new Image();
+                    img.src = canvas.toDataURL('image/png');
+                    img.alt = '分享二维码';
+                    qrCodeElement.appendChild(img);
+                });
+            }
+            
             // 显示分享模态框
             function showShareModal() {
+                // 生成二维码
+                generateQRCode();
+                
                 qrModal.classList.add('active');
-                countdown = 10;
-                countdownElement.textContent = countdown;
+                countdown = 30; // 改为30秒
                 confirmShare.disabled = true;
                 
                 // 开始倒计时
                 countdownInterval = setInterval(() => {
                     countdown--;
-                    countdownElement.textContent = countdown;
                     
                     if (countdown <= 0) {
                         clearInterval(countdownInterval);
                         confirmShare.disabled = false;
-                        timerElement.style.display = 'none';
                     }
                 }, 1000);
             }
@@ -659,10 +746,86 @@
             mainVideo.addEventListener('timeupdate', function() {
                 const percent = (mainVideo.currentTime / mainVideo.duration) * 100;
                 progress.style.width = percent + '%';
+                
+                // 更新进度条手柄位置
+                progressHandle.style.right = `${100 - percent}%`;
+                
                 updateTimeDisplay();
+                
+                // 保存播放进度
+                if (currentVideoId && mainVideo.currentTime > 0) {
+                    saveVideoProgress(currentVideoId, mainVideo.currentTime);
+                }
             });
             
+            // 进度条拖动功能
+            progressBar.addEventListener('mousedown', startDrag);
+            progressBar.addEventListener('touchstart', startDrag);
+            
+            function startDrag(e) {
+                isDragging = true;
+                document.addEventListener('mousemove', onDrag);
+                document.addEventListener('touchmove', onDrag);
+                document.addEventListener('mouseup', stopDrag);
+                document.addEventListener('touchend', stopDrag);
+                
+                // 初始拖动
+                onDrag(e);
+            }
+            
+            function onDrag(e) {
+                if (!isDragging) return;
+                
+                const rect = progressBar.getBoundingClientRect();
+                let clientX;
+                
+                if (e.type.includes('touch')) {
+                    clientX = e.touches[0].clientX;
+                } else {
+                    clientX = e.clientX;
+                }
+                
+                const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+                progress.style.width = (percent * 100) + '%';
+                
+                // 更新进度条手柄位置
+                progressHandle.style.right = `${100 - (percent * 100)}%`;
+                
+                // 预览时间
+                const previewTime = percent * mainVideo.duration;
+                updateTimeDisplay(previewTime);
+            }
+            
+            function stopDrag(e) {
+                if (!isDragging) return;
+                
+                isDragging = false;
+                document.removeEventListener('mousemove', onDrag);
+                document.removeEventListener('touchmove', onDrag);
+                document.removeEventListener('mouseup', stopDrag);
+                document.removeEventListener('touchend', stopDrag);
+                
+                // 设置视频时间
+                const rect = progressBar.getBoundingClientRect();
+                let clientX;
+                
+                if (e.type.includes('touch')) {
+                    clientX = e.changedTouches[0].clientX;
+                } else {
+                    clientX = e.clientX;
+                }
+                
+                const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+                mainVideo.currentTime = percent * mainVideo.duration;
+                
+                // 恢复正常时间显示
+                updateTimeDisplay();
+            }
+            
+            // 点击进度条跳转
             progressBar.addEventListener('click', function(e) {
+                if (isDragging) return;
+                
                 const rect = progressBar.getBoundingClientRect();
                 const percent = (e.clientX - rect.left) / rect.width;
                 mainVideo.currentTime = percent * mainVideo.duration;
@@ -686,14 +849,50 @@
                 playPauseBtn.textContent = '▶';
             });
             
-            function updateTimeDisplay() {
-                const currentTime = formatTime(mainVideo.currentTime);
-                const duration = formatTime(mainVideo.duration);
-                timeDisplay.textContent = `${currentTime} / ${duration}`;
+            // 全屏功能
+            fullscreenBtn.addEventListener('click', function() {
+                if (!document.fullscreenElement) {
+                    if (videoContainer.requestFullscreen) {
+                        videoContainer.requestFullscreen();
+                    } else if (videoContainer.webkitRequestFullscreen) {
+                        videoContainer.webkitRequestFullscreen();
+                    } else if (videoContainer.msRequestFullscreen) {
+                        videoContainer.msRequestFullscreen();
+                    }
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
+                }
+            });
+            
+            function updateTimeDisplay(previewTime) {
+                let currentTime, duration;
+                
+                if (previewTime !== undefined) {
+                    currentTime = previewTime;
+                    duration = mainVideo.duration;
+                } else {
+                    currentTime = mainVideo.currentTime;
+                    duration = mainVideo.duration;
+                }
+                
+                if (isNaN(duration)) {
+                    timeDisplay.textContent = "0:00 / 0:00";
+                    return;
+                }
+                
+                const currentTimeStr = formatTime(currentTime);
+                const durationStr = formatTime(duration);
+                timeDisplay.textContent = `${currentTimeStr} / ${durationStr}`;
             }
             
             function formatTime(seconds) {
-                if (isNaN(seconds)) return "0:00 / 0:00";
+                if (isNaN(seconds)) return "0:00";
                 const mins = Math.floor(seconds / 60);
                 const secs = Math.floor(seconds % 60);
                 return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
