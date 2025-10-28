@@ -3,190 +3,226 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎬 视频播放页</title>
+<title>🎬 M3U8 视频播放页</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: #000;
-    color: #fff;
-    font-family: Arial, sans-serif;
-    overflow: hidden;
-  }
-  #videoContainer {
-    position: relative;
-    width: 100%;
-    height: 100vh;
-  }
-  video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    background: #000;
-  }
-  #loading {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: #000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    color: #aaa;
-    transition: opacity 0.5s;
-  }
-  #cover {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    object-fit: cover;
-    z-index: 1;
-    cursor: pointer;
-  }
-  #qrOverlay {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.9);
-    color: #fff;
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 10;
-    animation: fadeIn 0.8s ease forwards;
-  }
-  #qrOverlay img {
-    width: 220px;
-    height: 220px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    animation: pulse 2s infinite;
-  }
-  #qrOverlay p {
-    margin-bottom: 12px;
-    font-size: 16px;
-    color: #ccc;
-    text-align: center;
-  }
-  #qrOverlay button {
-    background: #00c853;
-    border: none;
-    padding: 12px 28px;
-    border-radius: 8px;
-    font-size: 16px;
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #000;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+  }
+  #videoContainer {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+  }
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #000;
+  }
+  #loading {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: #aaa;
+    transition: opacity 0.5s;
+    z-index: 5;
+  }
+  #cover {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 10;
+    cursor: pointer;
+  }
+  #qrOverlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.95);
+    color: #fff;
+    display: flex; 
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100; /* 最高层级 */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s ease-in-out;
+  }
+  #qrOverlay img {
+    width: 220px;
+    height: 220px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+  }
+  #qrOverlay button {
+    background: #00c853;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    color: #fff;
+    transition: background-color 0.3s;
+  }
+  #qrOverlay button:disabled {
+    background: #555;
+    color: #999;
     cursor: not-allowed;
-    color: #fff;
-    opacity: 0.5;
-    transition: all 0.3s;
   }
-  #qrOverlay button.active {
+  
+  /* 新增：播放下一集按钮样式 */
+  #nextBtn {
+    position: absolute;
+    z-index: 50;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 15px 30px;
+    font-size: 1.2rem;
+    background: #00c853;
+    color: white;
+    border: none;
+    border-radius: 10px;
     cursor: pointer;
-    opacity: 1;
+    display: none; /* 默认隐藏 */
   }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 </style>
 </head>
 <body>
 <div id="videoContainer">
-  <div id="loading">正在加载视频...</div>
-  <video id="video" controls playsinline webkit-playsinline></video>
-  <img id="cover" />
-  <div id="qrOverlay">
-    <img src="qr.jpg" alt="分享二维码">
-    <p id="countdown">请将此二维码分享到微信群或好友<br>10 秒后可点击解锁</p>
-    <button id="sharedBtn" disabled>我已分享</button>
-  </div>
+  <div id="loading">正在加载视频...</div>
+  <video id="video" playsinline webkit-playsinline></video>
+  <img id="cover" />
+  <button id="nextBtn">播放下一集</button>
+  
+  <div id="qrOverlay">
+    <img src="qr.jpg" alt="分享二维码">
+    <p>请将此二维码分享到微信群或好友，解锁后续视频</p>
+    <button id="sharedBtn" disabled>我已分享</button>
+  </div>
 </div>
 
 <script>
-(async function() {
-  const video = document.getElementById('video');
-  const loading = document.getElementById('loading');
-  const cover = document.getElementById('cover');
-  const qrOverlay = document.getElementById('qrOverlay');
-  const sharedBtn = document.getElementById('sharedBtn');
-  const countdownText = document.getElementById('countdown');
+(function() {
+  const video = document.getElementById('video');
+  const loading = document.getElementById('loading');
+  const cover = document.getElementById('cover');
+  const qrOverlay = document.getElementById('qrOverlay');
+  const sharedBtn = document.getElementById('sharedBtn');
+  const nextBtn = document.getElementById('nextBtn'); // 获取新按钮
 
-  const res = await fetch('links.json?t=' + Date.now());
-  const data = await res.json();
-  const videos = data.videos;
-  cover.src = data.cover;
+  let hls; // HLS 播放器实例
 
-  // 从本地读取数据
-  let watchedVideos = JSON.parse(localStorage.getItem('watchedVideos') || '[]'); // 已看过的视频索引
-  let unlocked = localStorage.getItem('unlockAfterShare') === 'true'; // 当前是否已解锁阶段
-  let current = parseInt(localStorage.getItem('videoIndex') || 0);
-
-  cover.onclick = () => {
-    cover.style.display = 'none';
-    playVideo();
+  // --- 视频列表和封面图片硬编码 (关键修改) ---
+  const data = {
+    // 请确保 'cover.jpg' 文件存在于你的仓库中
+    cover: 'cover.jpg' 
   };
+  const list = [
+    "https://v202509.fhbbff.com/20251025/YvivGiif/index.m3u8",
+    "https://v202509.fhbbff.com/20251025/KJSSxEk1/index.m3u8",
+    "https://v202509.fhbbff.com/20251023/tc19cBGs/index.m3u8",
+    "https://v202509.fhbbff.com/20251026/PbfagE2m/index.m3u8",
+    "https://v202509.fhbbff.com/20251026/C3JARqNJ/index.m3u8"
+  ];
+  let current = parseInt(localStorage.getItem('videoIndex') || 0);
+  let shared = localStorage.getItem('sharedDone') === 'true';
+  let hasIncremented = false; 
+  let timerInterval = null; 
 
-  function playVideo() {
-    if (current >= videos.length) current = 0;
-    const src = videos[current];
-    video.src = src;
-    loading.style.display = 'flex';
-    video.load();
+  // 设置封面
+  cover.src = data.cover;
+  cover.onclick = () => {
+    cover.style.display = 'none';
+    startPlay();
+  };
 
-    video.oncanplay = () => {
-      loading.style.display = 'none';
-      video.play().catch(()=>{});
-    };
-
-    video.onplay = () => {
-      // 如果此视频没看过，则加入 watchedVideos
-      if (!watchedVideos.includes(current)) {
-        watchedVideos.push(current);
-        localStorage.setItem('watchedVideos', JSON.stringify(watchedVideos));
-
-        // 每看 3 个新视频 → 强制分享
-        const newVideosSinceLastShare = watchedVideos.length % 3;
-        if (newVideosSinceLastShare === 0 && !unlocked) {
-          video.pause();
-          showShareOverlay();
-        }
-      }
-    };
-
-    video.onended = () => {
-      current++;
-      localStorage.setItem('videoIndex', current);
-      playVideo();
-    };
-  }
-
-  function showShareOverlay() {
+  function showQrWithDelay() {
+    // 隐藏下一集按钮
+    nextBtn.style.display = 'none';
+    
+    // 1. 显示遮罩层（带动画）
     qrOverlay.style.display = 'flex';
-    sharedBtn.disabled = true;
-    sharedBtn.classList.remove('active');
-    unlocked = false;
-    localStorage.setItem('unlockAfterShare', 'false');
-    let timeLeft = 10;
-    countdownText.innerHTML = `请将此二维码分享到微信群或好友<br>${timeLeft} 秒后可点击解锁`;
+    setTimeout(() => { 
+      qrOverlay.style.opacity = 1; 
+      qrOverlay.style.visibility = 'visible'; 
+    }, 10);
 
-    const timer = setInterval(() => {
-      timeLeft--;
-      countdownText.innerHTML = `请将此二维码分享到微信群或好友<br>${timeLeft} 秒后可点击解锁`;
-      if (timeLeft <= 0) {
-        clearInterval(timer);
-        sharedBtn.disabled = false;
-        sharedBtn.classList.add('active');
-        countdownText.innerHTML = `请点击“我已分享”按钮以继续播放`;
-      }
+    // 2. 禁用按钮并开始倒计时
+    sharedBtn.disabled = true;
+    let countdown = 10;
+    sharedBtn.textContent = `请等待 ${countdown} 秒...`;
+
+    if (timerInterval) clearInterval(timerInterval); 
+
+    timerInterval = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+            sharedBtn.textContent = `请等待 ${countdown} 秒...`;
+        } else {
+            // 倒计时结束
+            clearInterval(timerInterval);
+            timerInterval = null;
+            sharedBtn.disabled = false;
+            sharedBtn.textContent = '我已分享';
+        }
     }, 1000);
   }
 
-  sharedBtn.onclick = () => {
-    if (sharedBtn.disabled) return;
-    qrOverlay.style.display = 'none';
-    unlocked = true;
-    localStorage.setItem('unlockAfterShare', 'true');
-    playVideo();
-  };
-})();
-</script>
-</body>
-</html>
+  // 自动加载与播放
+  function startPlay() {
+    // 播放前隐藏下一集按钮
+    nextBtn.style.display = 'none';
+    
+    if (current >= list.length) current = 0;
+    const videoUrl = list[current];
+    loading.style.display = 'flex';
+    hasIncremented = false; 
+    
+    // --- M3U8/HLS 播放逻辑 (关键修改) ---
+    if (Hls.isSupported()) {
+        if (hls) hls.destroy();
+        hls = new Hls();
+        hls.loadSource(videoUrl);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
+            // M3U8 解析成功，视频可以播放
+            loading.style.display = 'none';
+            video.play().catch(()=>{});
+
+            // 播放即计数 (需求 2)
+            if (!hasIncremented) {
+                current++;
+                localStorage.setItem('videoIndex', current);
+                hasIncremented = true;
+            }
+        });
+        
+        hls.on(Hls.Events.ERROR, function(event, data) {
+            // 错误处理，防止卡死
+            if (data.fatal) {
+                console.error('HLS Fatal Error:', data);
+                loading.style.display = 'none';
+                alert('视频流加载失败，请检查视频源或网络。');
+            }
+        });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // iOS/Safari 原生支持 M3U8 
+        video.src = videoUrl;
+        video.load();
+        
+        video.oncanplay = () => {
+             loading.style.display = 'none
