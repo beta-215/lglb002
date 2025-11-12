@@ -1,931 +1,239 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>视频分享平台</title>
-    <!-- 引入hls.js库用于播放m3u8格式视频 -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <!-- 引入qrcode.js库用于生成二维码 -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Arial, sans-serif;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
-            color: #e0e0e0;
-            line-height: 1.6;
-            min-height: 100vh;
-            padding: 10px;
-        }
-        
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 15px;
-        }
-        
-        .tip {
-            background: rgba(24, 144, 255, 0.1);
-            border: 1px solid rgba(24, 144, 255, 0.3);
-            padding: 10px;
-            margin: 15px 0;
-            border-radius: 8px;
-            font-size: 13px;
-            text-align: center;
-        }
-        
-        .video-container {
-            position: relative;
-            margin: 15px 0;
-            background-color: #000;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-        }
-        
-        video {
-            width: 100%;
-            display: block;
-            border-radius: 10px;
-        }
-        
-        .video-controls {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: linear-gradient(transparent, rgba(0,0,0,0.8));
-            padding: 12px;
-            display: flex;
-            align-items: center;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        
-        .video-container:hover .video-controls {
-            opacity: 1;
-        }
-        
-        .progress-bar {
-            flex-grow: 1;
-            height: 8px;
-            background-color: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-            margin: 0 12px;
-            position: relative;
-            cursor: pointer;
-        }
-        
-        .progress {
-            height: 100%;
-            background: linear-gradient(90deg, #ff4757, #ff6b81);
-            border-radius: 4px;
-            width: 0%;
-            transition: width 0.1s;
-        }
-        
-        .progress-handle {
-            position: absolute;
-            top: 50%;
-            right: -6px;
-            width: 12px;
-            height: 12px;
-            background: #fff;
-            border-radius: 50%;
-            transform: translateY(-50%);
-            opacity: 0;
-            transition: opacity 0.2s;
-            box-shadow: 0 0 5px rgba(0,0,0,0.5);
-        }
-        
-        .progress-bar:hover .progress-handle {
-            opacity: 1;
-        }
-        
-        .watch-count {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 10px;
-            border-radius: 8px;
-            margin: 15px 0;
-            text-align: center;
-            font-size: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .video-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        
-        .video-item {
-            background: rgba(30, 30, 46, 0.7);
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            transition: transform 0.3s, box-shadow 0.3s;
-            cursor: pointer;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            position: relative;
-        }
-        
-        .video-item:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
-            background: rgba(40, 40, 60, 0.8);
-        }
-        
-        .video-info {
-            padding: 12px;
-        }
-        
-        .video-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-            font-size: 14px;
-            color: #fff;
-        }
-        
-        .video-duration {
-            color: #aaa;
-            font-size: 12px;
-        }
-        
-        .share-prompt {
-            background: rgba(24, 144, 255, 0.1);
-            border: 1px solid rgba(24, 144, 255, 0.3);
-            padding: 15px;
-            border-radius: 10px;
-            margin: 20px 0;
-            text-align: center;
-            display: none;
-            backdrop-filter: blur(10px);
-        }
-        
-        .share-button {
-            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-top: 10px;
-            transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 10px rgba(37, 117, 252, 0.3);
-        }
-        
-        .share-button:hover {
-            transform: scale(1.05);
-            box-shadow: 0 6px 15px rgba(37, 117, 252, 0.4);
-        }
-        
-        .locked {
-            opacity: 0.6;
-            position: relative;
-        }
-        
-        .locked::after {
-            content: "🔒 已锁定";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 8px 15px;
-            border-radius: 6px;
-            font-size: 14px;
-            backdrop-filter: blur(5px);
-        }
-        
-        .watched-badge {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            color: #4cd964;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-        }
-        
-        .control-button {
-            background: none;
-            border: none;
-            color: white;
-            cursor: pointer;
-            font-size: 16px;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: background 0.2s;
-        }
-        
-        .control-button:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-        
-        #timeDisplay {
-            font-size: 13px;
-            color: #ddd;
-            min-width: 90px;
-            text-align: center;
-        }
-        
-        .qr-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s, visibility 0.3s;
-        }
-        
-        .qr-modal.active {
-            opacity: 1;
-            visibility: visible;
-        }
-        
-        .qr-content {
-            background: #1a1a2e;
-            padding: 25px;
-            border-radius: 15px;
-            text-align: center;
-            max-width: 300px;
-            width: 90%;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .qr-code {
-            width: 200px;
-            height: 200px;
-            background: #fff;
-            margin: 15px auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        
-        .qr-code img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-        
-        .timer {
-            margin: 15px 0;
-            font-size: 14px;
-            color: #ff6b6b;
-            display: none; /* 隐藏倒计时 */
-        }
-        
-        .confirm-share {
-            background: linear-gradient(135deg, #4cd964, #5ac8fa);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-top: 10px;
-            transition: transform 0.2s;
-        }
-        
-        .confirm-share:disabled {
-            background: #666;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .confirm-share:not(:disabled):hover {
-            transform: scale(1.05);
-        }
-        
-        footer {
-            text-align: center;
-            margin-top: 30px;
-            padding: 15px;
-            color: #666;
-            font-size: 12px;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        
-        .loading-animation {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 5;
-            border-radius: 10px;
-        }
-        
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid rgba(255, 255, 255, 0.1);
-            border-top: 5px solid #ff4757;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        h2 {
-            margin: 20px 0 10px;
-            font-size: 18px;
-            color: #fff;
-        }
-        
-        .fullscreen-btn {
-            margin-left: 5px;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎬 hello</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #000;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    min-height: 100vh;
+    padding: 80px 20px 20px;
+  }
+  .content-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 90vw;
+  }
+  h1 {
+    font-size: 16px;
+    margin-bottom: 20px;
+    text-align: center;
+    opacity: 0.7;
+  }
+  .video-container {
+    position: relative;
+    width: 100%;
+  }
+  video {
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    background: #000;
+  }
+  .loading-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    pointer-events: none;
+    border-radius: 12px;
+  }
+  .loader {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top-color: #00ff88;
+    border-radius: 50%;
+    animation: spin 1s linear infinite, pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.6); }
+    50% { box-shadow: 0 0 15px 5px rgba(0,255,136,0.3); }
+  }
+  .loading-text {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #00ff88;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+  }
+  .dots span {
+    opacity: 0;
+    color: #00ff88;
+    text-shadow: 0 0 5px #00ff88, 0 0 10px #00ff88;
+    animation: blink 1.5s infinite;
+  }
+  .dots span:nth-child(1) { animation-delay: 0s; }
+  .dots span:nth-child(2) { animation-delay: 0.3s; }
+  .dots span:nth-child(3) { animation-delay: 0.6s; }
+  @keyframes blink {
+    0%, 20% { opacity: 0; }
+    30%, 80% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .video-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 20px;
+    gap: 10px;
+  }
+  .video-button {
+    padding: 10px 16px;
+    font-size: 15px;
+    border: none;
+    border-radius: 8px;
+    background-color: #333;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  .video-button:hover { background-color: #555; }
+  .video-button.active { background-color: #00c300; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.0/dist/hls.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <div class="tip">
-            温馨提示：视频加载可能需要几秒钟，请耐心等待
-        </div>
-        
-        <div class="video-container" id="videoContainer">
-            <video id="mainVideo">
-                <!-- 您的m3u8视频链接将在这里动态加载 -->
-                您的浏览器不支持视频播放。
-            </video>
-            <div class="video-controls">
-                <button class="control-button" id="playPauseBtn">▶</button>
-                <div class="progress-bar" id="progressBar">
-                    <div class="progress" id="progress"></div>
-                    <div class="progress-handle" id="progressHandle"></div>
-                </div>
-                <span id="timeDisplay">0:00 / 0:00</span>
-                <button class="control-button fullscreen-btn" id="fullscreenBtn">⛶</button>
-            </div>
-            <div class="loading-animation" id="loadingAnimation">
-                <div class="spinner"></div>
-            </div>
-        </div>
-        
-        <div class="watch-count">
-            当前周期已观看: <span id="watchCount">0</span>/3 个免费视频
-        </div>
-        
-        <div class="share-prompt" id="sharePrompt">
-            <p>您已观看完3个免费视频，分享给好友解锁更多精彩内容！</p>
-            <button class="share-button" id="shareBtn">立即分享</button>
-        </div>
-        
-        <h2>视频列表</h2>
-        <div class="video-list" id="videoList">
-            <!-- 视频列表将通过JavaScript动态生成 -->
-        </div>
-        
-        <footer>
-            <p>防走丢提示：如无法打开，换一部作品分享给裙友</p>
-        </footer>
+<div class="content-wrapper">
+  <h1>🎬 请勿相信视频中的广告</h1>
+  <div class="video-container">
+    <video id="video" playsinline webkit-playsinline preload="auto" controls></video>
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="loader"></div>
+      <div class="loading-text">
+        正在加载视频<span class="dots"><span>.</span><span>.</span><span>.</span></span>
+      </div>
     </div>
+  </div>
+</div>
 
-    <!-- 分享二维码模态框 -->
-    <div class="qr-modal" id="qrModal">
-        <div class="qr-content">
-            <h3>分享给好友解锁更多视频</h3>
-            <p>请长按保存并分享以下二维码给好友</p>
-            <div class="qr-code" id="qrCode">
-                <!-- 二维码将在这里动态生成 -->
-            </div>
-            <div class="timer" id="timer">请等待30秒</div>
-            <button class="confirm-share" id="confirmShare" disabled>我已分享</button>
-        </div>
-    </div>
+<div class="video-list" id="videoList">
+  <button class="video-button" data-enc="aHR0cHM6Ly92MjAyNTA5LmZoYmJmZi5jb20vMjAyNTEwMjUvWXZpdkdpaWYvaW5kZXgubTN1OA==">视频1</button>
+  <button class="video-button" data-enc="aHR0cHM6Ly92MjAyNTA5LmZoYmJmZi5jb20vMjAyNTEwMjUvS0pTU3hFazEvaW5kZXgubTN1OA==">视频2</button>
+  <button class="video-button" data-enc="aHR0cHM6Ly92MjAyNTA5LmZoYmJmZi5jb20vMjAyNTEwMjMvdGMxOWNCR3MvaW5kZXgubTN1OAo=">视频3</button>
+  <button class="video-button" data-enc="aHR0cHM6Ly92MjAyNTA5LmZoYmJmZi5jb20vMjAyNTEwMjYvUGJmYWdFMm0vaW5kZXgubTN1OAo=">视频4</button>
+  <button class="video-button" data-enc="aHR0cHM6Ly92MjAyNTA5LmZoYmJmZi5jb20vMjAyNTEwMjYvQzNKQVJxTkovaW5kZXgubTN1OAoK">视频5</button>
+  <button class="video-button" data-enc="aHR0cHM6Ly9iaXRkYXNoLWEuYWthbWFpaGQubmV0L2NvbnRlbnQvc2ludGVsL2hscy9wbGF5bGlzdC5tM3U4Cgo=">视频6</button>
+</div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // 视频数据 - 请将您的m3u8链接放在这里
-            const videos = [
-                { 
-                    id: 1, 
-                    title: "示例视频1 - 风景", 
-                    description: "风景欣赏", 
-                    duration: "5:30",
-                    // 在这里替换为您的m3u8链接
-                    src: "https://v202509.fhbbff.com/20251025/YvivGiif/index.m3u8"
-                },
-                { 
-                    id: 2, 
-                    title: "示例视频2 - 动物", 
-                    description: "动物世界", 
-                    duration: "10:15",
-                    // 在这里替换为您的m3u8链接
-                    src: "https://v202509.fhbbff.com/20251025/KJSSxEk1/index.m3u8"
-                },
-                { 
-                    id: 3, 
-                    title: "示例视频3 - 体育", 
-                    description: "体育集锦", 
-                    duration: "7:45",
-                    // 在这里替换为您的m3u8链接
-                    src: "https://v202509.fhbbff.com/20251023/tc19cBGs/index.m3u8"
-                },
-                { 
-                    id: 4, 
-                    title: "示例视频4 - 音乐", 
-                    description: "音乐现场", 
-                    duration: "4:20",
-                    // 在这里替换为您的m3u8链接
-                    src: "https://v202509.fhbbff.com/20251026/C3JARqNJ/index.m3u8"
-                },
-                { 
-                    id: 5, 
-                    title: "示例视频5 - 美食", 
-                    description: "美食制作", 
-                    duration: "8:10",
-                    // 在这里替换为您的m3u8链接
-                    src: "https://v202509.fhbbff.com/20251026/PbfagE2m/index.m3u8"
-                },
-                { 
-                    id: 6, 
-                    title: "示例视频6 - 旅行", 
-                    description: "旅行日记", 
-                    duration: "12:30",
-                    // 在这里替换为您的m3u8链接
-                    src: "https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8"
-                }
-            ];
-            
-            // DOM元素
-            const mainVideo = document.getElementById('mainVideo');
-            const videoContainer = document.getElementById('videoContainer');
-            const videoList = document.getElementById('videoList');
-            const watchCountElement = document.getElementById('watchCount');
-            const sharePrompt = document.getElementById('sharePrompt');
-            const shareBtn = document.getElementById('shareBtn');
-            const playPauseBtn = document.getElementById('playPauseBtn');
-            const progressBar = document.getElementById('progressBar');
-            const progress = document.getElementById('progress');
-            const progressHandle = document.getElementById('progressHandle');
-            const timeDisplay = document.getElementById('timeDisplay');
-            const loadingAnimation = document.getElementById('loadingAnimation');
-            const qrModal = document.getElementById('qrModal');
-            const confirmShare = document.getElementById('confirmShare');
-            const qrCodeElement = document.getElementById('qrCode');
-            const fullscreenBtn = document.getElementById('fullscreenBtn');
-            
-            // 状态变量
-            let watchCount = 0;
-            let watchedVideos = new Set();
-            let shareCompleted = false;
-            let countdown = 30; // 改为30秒
-            let countdownInterval;
-            let hls; // HLS播放器实例
-            let currentVideoId = null; // 当前播放的视频ID
-            let isDragging = false; // 是否正在拖动进度条
-            
-            // 从本地存储加载数据
-            function loadFromStorage() {
-                const savedWatchCount = localStorage.getItem('videoWatchCount');
-                const savedWatchedVideos = localStorage.getItem('watchedVideos');
-                const savedShareCompleted = localStorage.getItem('shareCompleted');
-                
-                if (savedWatchCount) watchCount = parseInt(savedWatchCount);
-                if (savedWatchedVideos) watchedVideos = new Set(JSON.parse(savedWatchedVideos));
-                if (savedShareCompleted) shareCompleted = JSON.parse(savedShareCompleted);
-                
-                watchCountElement.textContent = watchCount;
-                
-                // 如果已经分享过，隐藏分享提示
-                if (shareCompleted) {
-                    sharePrompt.style.display = 'none';
-                } else if (watchCount >= 3) {
-                    sharePrompt.style.display = 'block';
-                }
-            }
-            
-            // 保存到本地存储
-            function saveToStorage() {
-                localStorage.setItem('videoWatchCount', watchCount.toString());
-                localStorage.setItem('watchedVideos', JSON.stringify([...watchedVideos]));
-                localStorage.setItem('shareCompleted', JSON.stringify(shareCompleted));
-            }
-            
-            // 保存视频播放进度
-            function saveVideoProgress(videoId, currentTime) {
-                localStorage.setItem(`videoProgress_${videoId}`, currentTime.toString());
-            }
-            
-            // 获取视频播放进度
-            function getVideoProgress(videoId) {
-                const progress = localStorage.getItem(`videoProgress_${videoId}`);
-                return progress ? parseFloat(progress) : 0;
-            }
-            
-            // 初始化视频列表
-            function initVideoList() {
-                videos.forEach(video => {
-                    const videoItem = document.createElement('div');
-                    videoItem.className = 'video-item';
-                    if (watchedVideos.has(video.id)) {
-                        videoItem.innerHTML += '<div class="watched-badge">已观看</div>';
-                    }
-                    
-                    videoItem.innerHTML += `
-                        <div class="video-info">
-                            <div class="video-title">${video.title}</div>
-                            <div class="video-duration">${video.description} | ${video.duration}</div>
-                        </div>
-                    `;
-                    
-                    // 如果已达到观看上限且此视频未被观看过，则锁定
-                    if (watchCount >= 3 && !shareCompleted && !watchedVideos.has(video.id)) {
-                        videoItem.classList.add('locked');
-                    }
-                    
-                    videoItem.addEventListener('click', function() {
-                        if (watchCount >= 3 && !shareCompleted && !watchedVideos.has(video.id)) {
-                            showShareModal();
-                            return;
-                        }
-                        
-                        playVideo(video);
-                    });
-                    
-                    videoList.appendChild(videoItem);
-                });
-            }
-            
-            // 播放视频
-            function playVideo(video) {
-                currentVideoId = video.id;
-                
-                // 显示加载动画
-                loadingAnimation.style.display = 'flex';
-                
-                // 停止当前播放的视频
-                if (hls) {
-                    hls.destroy();
-                }
-                
-                // 检查浏览器是否支持HLS
-                if (Hls.isSupported()) {
-                    // 创建HLS播放器实例
-                    hls = new Hls();
-                    // 绑定视频元素
-                    hls.attachMedia(mainVideo);
-                    // 加载m3u8文件
-                    hls.loadSource(video.src);
-                    
-                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                        // 隐藏加载动画
-                        loadingAnimation.style.display = 'none';
-                        
-                        // 获取保存的播放进度
-                        const savedTime = getVideoProgress(video.id);
-                        if (savedTime > 0) {
-                            mainVideo.currentTime = savedTime;
-                        }
-                        
-                        // 播放视频
-                        mainVideo.play();
-                    });
-                } else if (mainVideo.canPlayType('application/vnd.apple.mpegurl')) {
-                    // Safari等原生支持HLS的浏览器
-                    mainVideo.src = video.src;
-                    mainVideo.addEventListener('loadedmetadata', function() {
-                        loadingAnimation.style.display = 'none';
-                        
-                        // 获取保存的播放进度
-                        const savedTime = getVideoProgress(video.id);
-                        if (savedTime > 0) {
-                            mainVideo.currentTime = savedTime;
-                        }
-                        
-                        mainVideo.play();
-                    });
-                } else {
-                    alert('您的浏览器不支持播放此视频格式');
-                    loadingAnimation.style.display = 'none';
-                    return;
-                }
-                
-                // 如果这是第一次观看此视频，增加观看计数
-                if (!watchedVideos.has(video.id)) {
-                    watchedVideos.add(video.id);
-                    watchCount++;
-                    watchCountElement.textContent = watchCount;
-                    
-                    // 保存到本地存储
-                    saveToStorage();
-                    
-                    // 检查是否达到观看上限
-                    if (watchCount >= 3 && !shareCompleted) {
-                        sharePrompt.style.display = 'block';
-                        // 锁定未观看的视频
-                        lockUnwatchedVideos();
-                    }
-                    
-                    // 更新视频列表中的已观看标记
-                    updateVideoList();
-                }
-            }
-            
-            // 锁定未观看的视频
-            function lockUnwatchedVideos() {
-                const videoItems = document.querySelectorAll('.video-item');
-                videoItems.forEach((item, index) => {
-                    if (!watchedVideos.has(index + 1)) {
-                        item.classList.add('locked');
-                    }
-                });
-            }
-            
-            // 更新视频列表显示
-            function updateVideoList() {
-                const videoItems = document.querySelectorAll('.video-item');
-                videoItems.forEach((item, index) => {
-                    // 清除现有的已观看标记
-                    const existingBadge = item.querySelector('.watched-badge');
-                    if (existingBadge) {
-                        existingBadge.remove();
-                    }
-                    
-                    // 如果已观看，添加标记
-                    if (watchedVideos.has(index + 1)) {
-                        item.innerHTML += '<div class="watched-badge">已观看</div>';
-                        item.classList.remove('locked');
-                    }
-                    
-                    // 如果已达到观看上限且未分享，锁定未观看的视频
-                    if (watchCount >= 3 && !shareCompleted && !watchedVideos.has(index + 1)) {
-                        item.classList.add('locked');
-                    } else {
-                        item.classList.remove('locked');
-                    }
-                });
-            }
-            
-            // 生成二维码
-            function generateQRCode() {
-                // 清空之前的二维码
-                qrCodeElement.innerHTML = '';
-                
-                // 生成二维码 - 这里使用当前页面URL作为示例
-                // 实际应用中，您可以使用推广链接或其他URL
-                const shareUrl = "https://ibb.co.com/Z63h8mck";
-                
-                // 使用QRCode.js生成二维码
-                QRCode.toCanvas(shareUrl, { width: 200, height: 200 }, function(err, canvas) {
-                    if (err) {
-                        console.error(err);
-                        qrCodeElement.innerHTML = '二维码生成失败';
-                        return;
-                    }
-                    
-                    // 将canvas转换为img，方便用户长按保存
-                    const img = new Image();
-                    img.src = canvas.toDataURL('image/png');
-                    img.alt = '分享二维码';
-                    qrCodeElement.appendChild(img);
-                });
-            }
-            
-            // 显示分享模态框
-            function showShareModal() {
-                // 生成二维码
-                generateQRCode();
-                
-                qrModal.classList.add('active');
-                countdown = 30; // 改为30秒
-                confirmShare.disabled = true;
-                
-                // 开始倒计时
-                countdownInterval = setInterval(() => {
-                    countdown--;
-                    
-                    if (countdown <= 0) {
-                        clearInterval(countdownInterval);
-                        confirmShare.disabled = false;
-                    }
-                }, 1000);
-            }
-            
-            // 视频控制功能
-            mainVideo.addEventListener('loadeddata', function() {
-                // 隐藏加载动画
-                loadingAnimation.style.display = 'none';
-                updateTimeDisplay();
-            });
-            
-            mainVideo.addEventListener('timeupdate', function() {
-                const percent = (mainVideo.currentTime / mainVideo.duration) * 100;
-                progress.style.width = percent + '%';
-                
-                // 更新进度条手柄位置
-                progressHandle.style.right = `${100 - percent}%`;
-                
-                updateTimeDisplay();
-                
-                // 保存播放进度
-                if (currentVideoId && mainVideo.currentTime > 0) {
-                    saveVideoProgress(currentVideoId, mainVideo.currentTime);
-                }
-            });
-            
-            // 进度条拖动功能
-            progressBar.addEventListener('mousedown', startDrag);
-            progressBar.addEventListener('touchstart', startDrag);
-            
-            function startDrag(e) {
-                isDragging = true;
-                document.addEventListener('mousemove', onDrag);
-                document.addEventListener('touchmove', onDrag);
-                document.addEventListener('mouseup', stopDrag);
-                document.addEventListener('touchend', stopDrag);
-                
-                // 初始拖动
-                onDrag(e);
-            }
-            
-            function onDrag(e) {
-                if (!isDragging) return;
-                
-                const rect = progressBar.getBoundingClientRect();
-                let clientX;
-                
-                if (e.type.includes('touch')) {
-                    clientX = e.touches[0].clientX;
-                } else {
-                    clientX = e.clientX;
-                }
-                
-                const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                progress.style.width = (percent * 100) + '%';
-                
-                // 更新进度条手柄位置
-                progressHandle.style.right = `${100 - (percent * 100)}%`;
-                
-                // 预览时间
-                const previewTime = percent * mainVideo.duration;
-                updateTimeDisplay(previewTime);
-            }
-            
-            function stopDrag(e) {
-                if (!isDragging) return;
-                
-                isDragging = false;
-                document.removeEventListener('mousemove', onDrag);
-                document.removeEventListener('touchmove', onDrag);
-                document.removeEventListener('mouseup', stopDrag);
-                document.removeEventListener('touchend', stopDrag);
-                
-                // 设置视频时间
-                const rect = progressBar.getBoundingClientRect();
-                let clientX;
-                
-                if (e.type.includes('touch')) {
-                    clientX = e.changedTouches[0].clientX;
-                } else {
-                    clientX = e.clientX;
-                }
-                
-                const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                mainVideo.currentTime = percent * mainVideo.duration;
-                
-                // 恢复正常时间显示
-                updateTimeDisplay();
-            }
-            
-            // 点击进度条跳转
-            progressBar.addEventListener('click', function(e) {
-                if (isDragging) return;
-                
-                const rect = progressBar.getBoundingClientRect();
-                const percent = (e.clientX - rect.left) / rect.width;
-                mainVideo.currentTime = percent * mainVideo.duration;
-            });
-            
-            playPauseBtn.addEventListener('click', function() {
-                if (mainVideo.paused) {
-                    mainVideo.play();
-                    playPauseBtn.textContent = '❚❚';
-                } else {
-                    mainVideo.pause();
-                    playPauseBtn.textContent = '▶';
-                }
-            });
-            
-            mainVideo.addEventListener('play', function() {
-                playPauseBtn.textContent = '❚❚';
-            });
-            
-            mainVideo.addEventListener('pause', function() {
-                playPauseBtn.textContent = '▶';
-            });
-            
-            // 全屏功能
-            fullscreenBtn.addEventListener('click', function() {
-                if (!document.fullscreenElement) {
-                    if (videoContainer.requestFullscreen) {
-                        videoContainer.requestFullscreen();
-                    } else if (videoContainer.webkitRequestFullscreen) {
-                        videoContainer.webkitRequestFullscreen();
-                    } else if (videoContainer.msRequestFullscreen) {
-                        videoContainer.msRequestFullscreen();
-                    }
-                } else {
-                    if (document.exitFullscreen) {
-                        document.exitFullscreen();
-                    } else if (document.webkitExitFullscreen) {
-                        document.webkitExitFullscreen();
-                    } else if (document.msExitFullscreen) {
-                        document.msExitFullscreen();
-                    }
-                }
-            });
-            
-            function updateTimeDisplay(previewTime) {
-                let currentTime, duration;
-                
-                if (previewTime !== undefined) {
-                    currentTime = previewTime;
-                    duration = mainVideo.duration;
-                } else {
-                    currentTime = mainVideo.currentTime;
-                    duration = mainVideo.duration;
-                }
-                
-                if (isNaN(duration)) {
-                    timeDisplay.textContent = "0:00 / 0:00";
-                    return;
-                }
-                
-                const currentTimeStr = formatTime(currentTime);
-                const durationStr = formatTime(duration);
-                timeDisplay.textContent = `${currentTimeStr} / ${durationStr}`;
-            }
-            
-            function formatTime(seconds) {
-                if (isNaN(seconds)) return "0:00";
-                const mins = Math.floor(seconds / 60);
-                const secs = Math.floor(seconds % 60);
-                return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-            }
-            
-            // 分享按钮事件
-            shareBtn.addEventListener('click', showShareModal);
-            
-            // 确认分享按钮事件
-            confirmShare.addEventListener('click', function() {
-                qrModal.classList.remove('active');
-                shareCompleted = true;
-                sharePrompt.style.display = 'none';
-                watchCount = 0;
-                watchCountElement.textContent = watchCount;
-                
-                // 保存到本地存储
-                saveToStorage();
-                
-                // 解锁所有视频
-                updateVideoList();
-            });
-            
-            // 初始化
-            loadFromStorage();
-            initVideoList();
-            
-            // 初始隐藏加载动画
-            loadingAnimation.style.display = 'none';
-            
-            // 移除video元素的controls属性，避免双层控制栏
-            mainVideo.removeAttribute('controls');
-        });
-    </script>
+<script>
+const video = document.getElementById('video');
+const buttons = document.querySelectorAll('.video-button');
+const loadingOverlay = document.getElementById('loadingOverlay');
+let hls = null;
+
+function saveProgress(url, time){ localStorage.setItem("progress_" + url, time.toFixed(1)); }
+function loadProgress(url){ const t=parseFloat(localStorage.getItem("progress_" + url)); return isNaN(t)?0:t; }
+function setActiveButton(enc){ buttons.forEach(btn=>btn.classList.toggle('active',btn.dataset.enc.trim()===enc)); }
+function showLoading(){ loadingOverlay.style.display='flex'; }
+function hideLoading(){ loadingOverlay.style.display='none'; }
+
+function decodeBase64(str){
+  try { return atob(str.replace(/[\r\n\s]/g, "")); }
+  catch(e){ return ""; }
+}
+
+function loadVideo(url, resumeTime, isM3U8){
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+
+  if(hls){ 
+    hls.destroy(); 
+    hls = null; 
+  }
+
+  if(isM3U8 && typeof Hls !== 'undefined'){
+    hls = new Hls({
+      maxBufferLength: 30,
+      maxMaxBufferLength: 60,
+      fragLoadingTimeOut: 20000,
+      manifestLoadingTimeOut: 20000,
+      enableWorker: true,
+      startFragPrefetch: true
+    });
+    hls.loadSource(url);
+    hls.attachMedia(video);
+
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      video.currentTime = resumeTime;
+      video.play().catch(()=>{});
+      hideLoading();
+    });
+
+    hls.on(Hls.Events.ERROR, function(event, data){
+      console.error("Hls.js error:", data);
+      if(data.fatal){
+        switch(data.type){
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            console.warn("网络错误，尝试重新加载...");
+            hls.startLoad();
+            break;
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            console.warn("媒体错误，尝试恢复...");
+            hls.recoverMediaError();
+            break;
+          default:
+            console.warn("无法恢复的错误，销毁 Hls 实例");
+            hls.destroy();
+            hideLoading();
+            break;
+        }
+      }
+    });
+
+  } else {
+    video.src = url;
+    video.addEventListener('loadedmetadata', function onLoaded(){
+      video.removeEventListener('loadedmetadata', onLoaded);
+      video.currentTime = resumeTime;
+      video.play().catch(()=>{});
+      hideLoading();
+    });
+  }
+
+  video.controls = true;
+
+  video.removeEventListener('timeupdate', video._saveHandler);
+  video._saveHandler = ()=>saveProgress(url, video.currentTime);
+  video.addEventListener('timeupdate', video._saveHandler);
+}
+
+function loadVideoFromEncoded(encStr){
+  const url = decodeBase64(encStr.trim());
+  if(!url) return;
+  const isM3U8 = url.includes(".m3u8");
+  setActiveButton(encStr);
+  showLoading();
+  const resumeTime = loadProgress(url);
+  loadVideo(url, resumeTime, isM3U8);
+}
+
+loadVideoFromEncoded(buttons[0].dataset.enc.trim());
+
+buttons.forEach(btn => {
+  btn.addEventListener('click', ()=>loadVideoFromEncoded(btn.dataset.enc.trim()));
+});
+
+video.addEventListener('playing', hideLoading);
+video.addEventListener('canplay', hideLoading);
+</script>
 </body>
 </html>
